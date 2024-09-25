@@ -358,6 +358,7 @@ dependencies = [
  "diesel",
  "diesel-async",
  "dotenvy",
+ "rand_chacha",
  "serde",
  "thiserror",
 ]
