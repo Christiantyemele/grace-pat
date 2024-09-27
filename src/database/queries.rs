@@ -10,11 +10,34 @@ use crate::database::{
 use diesel::{prelude::*, result::Error};
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection, RunQueryDsl};
 use rand_chacha::{rand_core::RngCore, ChaCha8Rng};
+use totp_rs::{Algorithm, TOTP, Secret};
 
 use super::{error::DatabaseError, model::Session};
 
-type Database = Pool<AsyncPgConnection>;
+pub type Database = Pool<AsyncPgConnection>;
 type Random = Arc<Mutex<ChaCha8Rng>>;
+pub struct Otp(u16);
+impl FromStr for Otp {
+    type Err = <u16 as FromStr>::Err;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse().map(Self)
+    }
+}
+impl Otp {
+    fn into_database_value(self) -> i32 {
+        self.0 as i32
+    }
+    fn generate_new(self) -> String {
+        let totp = TOTP::new(
+            Algorithm::SHA1,
+            6,
+            1,
+            20,
+            Secret::Encoded("KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ".to_string()).to_bytes().unwrap(),
+        ).unwrap();
+       totp.generate_current().unwrap()
+    }
+}
 pub struct SessionToken(u128);
 impl FromStr for SessionToken {
     type Err = <u128 as FromStr>::Err;
@@ -73,7 +96,7 @@ pub async fn delete_user_by(
 pub async fn get_user_by(
     conn: &mut Database,
     usernam: String,
-) -> Result<Users, diesel::result::Error> {
+) -> Result<Option<Users>, diesel::result::Error> {
     use schema::users::dsl::*;
     let mut conn = conn.get().await.unwrap();
     let result = users
@@ -82,7 +105,7 @@ pub async fn get_user_by(
         .first(&mut *conn)
         .await?;
 
-    Ok(result)
+    Ok(Some(result))
 }
 pub async fn get_all_users(conn: &mut Database) -> Result<Vec<Users>, diesel::result::Error> {
     let mut conn = conn.get().await.unwrap();
@@ -107,6 +130,9 @@ pub async fn create_session(conn: &mut Database, token: SessionToken, uid: i32) 
         .await
         .unwrap();
     result
+}
+pub async fn create_otp() {
+
 }
 
 pub async fn get_id_pwd_by (conn: &mut Database, usernam: String) -> Option<(i32, String)> {
