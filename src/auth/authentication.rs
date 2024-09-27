@@ -1,10 +1,16 @@
-use pbkdf2::{password_hash::SaltString, Pbkdf2};
-use rand_chacha::rand_core::OsRng;
+use std::sync::{Arc, Mutex};
+
+use diesel::row;
+use pbkdf2::{password_hash::{PasswordHash, PasswordVerifier, SaltString}, Pbkdf2};
+use rand_chacha::{rand_core::OsRng, ChaCha8Rng};
 use pbkdf2::password_hash::PasswordHasher;
+use rand_core::le;
 
-use crate::{auth::error::SignupError, database::queries::{get_user_by, Database}};
+use crate::{auth::error::SignupError, database::{queries::{create_user, get_id_pwd_by, get_user_by, Database, SessionToken}, schema::session::user_id}};
 
+use super::error::LoginError;
 
+type Random = Arc<Mutex<ChaCha8Rng>>;
 
 pub async fn signup(mut database: Database, username: String, email: Option<String>, password: String) -> Result<(), SignupError>{
 
@@ -18,7 +24,7 @@ pub async fn signup(mut database: Database, username: String, email: Option<Stri
     if !valid_username(&username) {
         return Err(SignupError::InvalidUsername);
     }
-    if get_user_by(&mut database, username).await.is_ok_and(|user| user.is_some()) {
+    if get_user_by(&mut database, &username).await.is_ok_and(|user| user.is_some()) {
         return Err(SignupError::UserNameTaken);
     }
     else {
@@ -28,9 +34,9 @@ pub async fn signup(mut database: Database, username: String, email: Option<Stri
         let hashed_password = if let Ok(password) = password_hash {
             password.to_string()
         } else {
-            return Err(SignupError::InvalidPassword);
+            return Err(SignupError::PasswordError);
         };
-        let result = create_user(&mut database, username.clone(), hashed_password).await;
+        let result = create_user(&mut database, username, hashed_password, email).await;
         let _new_user_id = match result {
             Ok(uid) => uid,
 
@@ -39,5 +45,17 @@ pub async fn signup(mut database: Database, username: String, email: Option<Stri
             }
         };
         Ok(())
+    }
+}
+pub async fn login(mut database: Database, username: String, random: Random, password: String) -> Result<SessionToken, LoginError> {
+    let row = get_id_pwd_by(&mut database, username).await;
+    let (uid, hashed_password) = if let Some(row) = row {
+        row
+    }else {
+        return Err(LoginError::UserDoesNotExist);
+    };
+    let verified_hash = PasswordHash::new(&hashed_password).unwrap();
+    if let Err(err) = Pbkdf2::verify_password(password.as_bytes(), verified_hash) {
+        
     }
 }

@@ -95,7 +95,7 @@ pub async fn delete_user_by(
 }
 pub async fn get_user_by(
     conn: &mut Database,
-    usernam: String,
+    usernam: &String,
 ) -> Result<Option<Users>, diesel::result::Error> {
     use schema::users::dsl::*;
     let mut conn = conn.get().await.unwrap();
