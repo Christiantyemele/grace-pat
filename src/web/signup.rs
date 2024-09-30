@@ -6,7 +6,7 @@ use crate::{
     database::queries::Database,
 };
 #[derive(Debug, Serialize)]
-struct SignupPayload {
+pub struct SignupPayload {
     username: String,
     password: String,
     email: Option<String>,

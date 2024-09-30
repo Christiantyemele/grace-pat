@@ -7,7 +7,7 @@ use crate::database::{
     model::{NewUser, Users},
     schema,
 };
-use diesel::{prelude::*, result::Error};
+use diesel::prelude::*;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection, RunQueryDsl};
 use rand_chacha::{rand_core::RngCore, ChaCha8Rng};
 use totp_rs::{Algorithm, TOTP, Secret};
@@ -50,7 +50,7 @@ impl SessionToken {
 
         self.0.to_string()
     }
-    pub fn into_database_value(self) -> Vec<u8> {
+    pub fn into_database_value(&self) -> Vec<u8> {
 
         self.0.to_be_bytes().to_vec()
     }
@@ -117,7 +117,7 @@ pub async fn get_all_users(conn: &mut Database) -> Result<Vec<Users>, diesel::re
 
     Ok(all_users)
 }
-pub async fn create_session(conn: &mut Database, token: SessionToken, uid: i32) -> Vec<u8> {
+pub async fn create_session(conn: &mut Database, token: &SessionToken, uid: i32) -> Vec<u8> {
     let mut conn = conn.get().await.unwrap();
     let new_session = Session {
         user_id: uid,
@@ -135,12 +135,26 @@ pub async fn create_otp() {
 
 }
 
-pub async fn get_id_pwd_by (conn: &mut Database, usernam: String) -> Option<(i32, String)> {
+pub async fn get_id_pwd_by_username(conn: &mut Database, usernam: String) -> Option<(i32, String)> {
 
     let mut conn = conn.get().await.unwrap();
     use schema::users::dsl::*;
     match users
         .filter(username.eq(usernam))
+        .select((id, passkey))
+        .get_result::<(i32, String)>(&mut *conn)
+        .await
+    {
+        Ok((user_id, password)) => Some((user_id, password)),
+        Err(_) => None,
+    }
+}
+pub async fn get_id_pwd_by_email(conn: &mut Database, mail_addr: String) -> Option<(i32, String)> {
+
+    let mut conn = conn.get().await.unwrap();
+    use schema::users::dsl::*;
+    match users
+        .filter(email.eq(mail_addr))
         .select((id, passkey))
         .get_result::<(i32, String)>(&mut *conn)
         .await

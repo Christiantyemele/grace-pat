@@ -1,8 +1,8 @@
-
-
-use std::fmt::format;
-
-use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
 use serde_json::{json, Value};
 use thiserror::Error as Err;
 
@@ -15,17 +15,16 @@ pub enum SignupError {
     #[error("Invalid password")]
     PasswordError,
     #[error("Internal Server Error")]
-    InternalError
-    
+    InternalError,
 }
 #[derive(Debug, Err)]
 pub enum LoginError {
     #[error("User Does not exist")]
-    UserDoesNotExist
-    
+    UserDoesNotExist,
+    #[error("Wrong Password")]
+    WrongPassword,
 }
 impl SignupError {
-
     /// Converts the error to an axum JSON representation.
     pub fn json(&self) -> Json<Value> {
         Json(json!({
@@ -40,7 +39,6 @@ impl From<SignupError> for Json<Value> {
     }
 }
 impl LoginError {
-
     /// Converts the error to an axum JSON representation.
     pub fn json(&self) -> Json<Value> {
         Json(json!({
@@ -55,6 +53,7 @@ impl From<LoginError> for Json<Value> {
 }
 pub fn error_page(e: &dyn std::error::Error) -> impl IntoResponse {
     Response::builder()
-    .status(StatusCode::INTERNAL_SERVER_ERROR)
-    .body(format!("error: {}", e)).unwrap()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .body(format!("error: {}", e))
+        .unwrap()
 }
