@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.6"
+cookie = "0.18.1"
 diesel = { version = "2.2.4", features = ["postgres"] }
 diesel-async = { version = "0.5.0", features = ["deadpool", "postgres"] }
 dotenvy = "0.15.7"
+http = "1.1.0"
 pbkdf2 = { version = "0.12.2", features = ["password-hash", "simple"] }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
@@ -16,3 +18,4 @@ serde_json = "1.0.128"
 thiserror = "1.0.64"
 tokio = { version = "1.40.0", features = ["full", "rt"] }
 totp-rs = "5.6.0"
+tower-cookies = "0.10.0"

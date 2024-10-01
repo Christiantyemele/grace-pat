@@ -1,14 +1,15 @@
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     auth::{authentication::signup, error::error_page},
     database::queries::Database,
 };
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct SignupPayload {
     username: String,
     password: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     email: Option<String>,
 }
 

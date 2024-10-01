@@ -38,6 +38,7 @@ impl Otp {
        totp.generate_current().unwrap()
     }
 }
+#[derive(Clone)]
 pub struct SessionToken(u128);
 impl FromStr for SessionToken {
     type Err = <u128 as FromStr>::Err;

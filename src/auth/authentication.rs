@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 
+use axum::extract::Request;
 use pbkdf2::password_hash::PasswordHasher;
 use pbkdf2::{
     password_hash::{PasswordHash, PasswordVerifier, SaltString},
@@ -10,6 +11,7 @@ use rand_chacha::{rand_core::OsRng, ChaCha8Rng};
 
 
 use crate::database::queries::get_id_pwd_by_username;
+use crate::utils::AUTH_COOKIE_NAME;
 use crate::{
     auth::error::SignupError,
     database::queries::{
@@ -18,9 +20,21 @@ use crate::{
         },
 };
 
-use super::error::LoginError;
+#[derive(Clone)]
+pub struct User {
+    pub username: String,
+    pub email: Option<String>
+}
 
-type Random = Arc<Mutex<ChaCha8Rng>>;
+use super::error::LoginError;
+#[derive(Clone)]
+pub struct AuthState(pub Option<(SessionToken, Option<User>, Database)>);
+impl AuthState {
+    pub fn logged_in(&self) -> bool {
+        self.0.is_some()
+    }
+}
+pub type Random = Arc<Mutex<ChaCha8Rng>>;
 
 pub async fn signup(
     mut database: Database,
@@ -91,4 +105,27 @@ pub async fn new_session(mut database: Database, random: Random, uid: i32) -> Se
     let session_token = SessionToken::generate_new(random);
     create_session(&mut database, &session_token, uid).await;
     session_token
+}
+pub async fn auth(
+    database: Database,
+    mut req: Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let session_tk = req
+        .headers()
+        .get_all("Cookie")
+        .iter()
+        .filter_map(|cookie| {
+            cookie
+                .to_str()
+                .ok()
+                .and_then(|cookie| cookie.parse::<cookie::Cookie>().ok())
+        })
+        .find_map(|cookie| {
+            (cookie.name() == AUTH_COOKIE_NAME).then(move || cookie.value().to_owned())
+        })
+        .and_then(|cookie_value| cookie_value.parse::<SessionToken>().ok());
+    req.extensions_mut()
+        .insert(AuthState(session_tk.map(|v| (v, None, database))));
+    next.run(req).await
 }
