@@ -8,8 +8,6 @@ use pbkdf2::{
     Pbkdf2,
 };
 use rand_chacha::{rand_core::OsRng, ChaCha8Rng};
-use totp_rs::TOTP;
-
 
 use crate::database::queries::{get_id_pwd_by_username, Otp};
 use crate::utils::AUTH_COOKIE_NAME;

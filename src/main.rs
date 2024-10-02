@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
+use axum::extract::State;
 use axum::routing::{delete, post};
 use axum::Extension;
 use axum::{middleware, response::IntoResponse, routing::get, Router};
@@ -13,7 +14,6 @@ use grace::web::signup::post_signup;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, RngCore, SeedableRng};
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
 use tower_cookies::CookieManagerLayer;
 
 async fn welcome() -> impl IntoResponse {
@@ -25,6 +25,7 @@ async fn main() {
 
     let mdlw_db = dbconn_pool.clone();
     let random = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
+    let random = Arc::new(Mutex::new(random));
 
     let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
     let router = Router::new()
@@ -40,7 +41,7 @@ async fn main() {
         ))
         .layer(CookieManagerLayer::new())
         .layer(Extension(dbconn_pool))
-        .layer(Extension(Arc::new(Mutex::new(random))));
+        .layer(Extension(random));
 
     axum::serve(listener, router).await.unwrap();
 }

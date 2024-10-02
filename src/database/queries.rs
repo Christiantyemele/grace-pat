@@ -12,13 +12,11 @@ use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection, RunQuer
 use rand_chacha::{rand_core::RngCore, ChaCha8Rng};
 use totp_rs::{Algorithm, Secret, TotpUrlError, TOTP};
 
-use super::{
-    error::DatabaseError,
-    model::{Mfa, Session},
-};
+use super::model::Session;
+
 
 pub type Database = Pool<AsyncPgConnection>;
-type Random = Arc<Mutex<ChaCha8Rng>>;
+pub type Random = Arc<Mutex<ChaCha8Rng>>;
 pub struct Otp;
 
 impl Otp {
