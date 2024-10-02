@@ -10,33 +10,46 @@ use crate::database::{
 use diesel::prelude::*;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection, RunQueryDsl};
 use rand_chacha::{rand_core::RngCore, ChaCha8Rng};
-use totp_rs::{Algorithm, TOTP, Secret};
+use totp_rs::{Algorithm, Secret, TotpUrlError, TOTP};
 
-use super::{error::DatabaseError, model::Session};
+use super::{
+    error::DatabaseError,
+    model::{Mfa, Session},
+};
 
 pub type Database = Pool<AsyncPgConnection>;
 type Random = Arc<Mutex<ChaCha8Rng>>;
-pub struct Otp(u16);
-impl FromStr for Otp {
-    type Err = <u16 as FromStr>::Err;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse().map(Self)
-    }
-}
+pub struct Otp;
+
 impl Otp {
-    fn into_database_value(self) -> i32 {
-        self.0 as i32
-    }
-    fn generate_new(self) -> String {
+    pub fn generate_new() -> String {
         let totp = TOTP::new(
             Algorithm::SHA1,
             6,
             1,
             20,
-            Secret::Encoded("KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ".to_string()).to_bytes().unwrap(),
-        ).unwrap();
-       totp.generate_current().unwrap()
+            Secret::Encoded("KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ".to_string())
+                .to_bytes()
+                .unwrap(),
+        )
+        .unwrap();
+      totp.generate_current().unwrap()
+     
     }
+    pub fn new() -> TOTP {
+        let totp = TOTP::new(
+            Algorithm::SHA1,
+            6,
+            1,
+            20,
+            Secret::Encoded("KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ".to_string())
+                .to_bytes()
+                .unwrap(),
+        )
+        .unwrap();
+    totp
+    }
+    
 }
 #[derive(Clone)]
 pub struct SessionToken(u128);
@@ -48,15 +61,12 @@ impl FromStr for SessionToken {
 }
 impl SessionToken {
     pub fn into_cookie_value(self) -> String {
-
         self.0.to_string()
     }
     pub fn into_database_value(&self) -> Vec<u8> {
-
         self.0.to_be_bytes().to_vec()
     }
     pub fn generate_new(random: Random) -> Self {
-
         let mut u128_pool = [0u8; 16];
         random.lock().unwrap().fill_bytes(&mut u128_pool);
         Self(u128::from_le_bytes(u128_pool))
@@ -132,12 +142,10 @@ pub async fn create_session(conn: &mut Database, token: &SessionToken, uid: i32)
         .unwrap();
     result
 }
-pub async fn create_otp() {
-
-}
-
-pub async fn get_id_pwd_by_username(conn: &mut Database, usernam: String) -> Option<(i32, String)> {
-
+pub async fn get_id_pwd_by_username(
+    conn: &mut Database,
+    usernam: &String,
+) -> Option<(i32, String)> {
     let mut conn = conn.get().await.unwrap();
     use schema::users::dsl::*;
     match users
@@ -151,7 +159,6 @@ pub async fn get_id_pwd_by_username(conn: &mut Database, usernam: String) -> Opt
     }
 }
 pub async fn get_id_pwd_by_email(conn: &mut Database, mail_addr: String) -> Option<(i32, String)> {
-
     let mut conn = conn.get().await.unwrap();
     use schema::users::dsl::*;
     match users
@@ -168,7 +175,6 @@ pub async fn delete_logged_in(
     conn: &mut Database,
     session_tk: SessionToken,
 ) -> Result<usize, diesel::result::Error> {
-
     let mut conn = conn.get().await.unwrap();
     use schema::session::dsl::*;
     use schema::users::dsl::*;
@@ -182,4 +188,3 @@ pub async fn delete_logged_in(
         .execute(&mut *conn)
         .await
 }
-

@@ -23,6 +23,8 @@ pub enum LoginError {
     UserDoesNotExist,
     #[error("Wrong Password")]
     WrongPassword,
+    #[error("Not Logged in")]
+    NotLogging
 }
 impl SignupError {
     /// Converts the error to an axum JSON representation.

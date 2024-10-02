@@ -8,9 +8,10 @@ use pbkdf2::{
     Pbkdf2,
 };
 use rand_chacha::{rand_core::OsRng, ChaCha8Rng};
+use totp_rs::TOTP;
 
 
-use crate::database::queries::get_id_pwd_by_username;
+use crate::database::queries::{get_id_pwd_by_username, Otp};
 use crate::utils::AUTH_COOKIE_NAME;
 use crate::{
     auth::error::SignupError,
@@ -28,12 +29,13 @@ pub struct User {
 
 use super::error::LoginError;
 #[derive(Clone)]
-pub struct AuthState(pub Option<(SessionToken, Option<User>, Database)>);
+pub struct AuthState(pub Option<(SessionToken, Option<User>, Database, Admin)>);
 impl AuthState {
     pub fn logged_in(&self) -> bool {
         self.0.is_some()
     }
 }
+type Admin = bool;
 pub type Random = Arc<Mutex<ChaCha8Rng>>;
 
 pub async fn signup(
@@ -78,10 +80,10 @@ pub async fn signup(
 }
 pub async fn login(
     mut database: Database,
-    username: Option<String>,
+    username: Option<&String>,
     email: Option<String>,
     random: Random,
-    password: String,
+    password: &String,
 ) -> Result<SessionToken, LoginError> {
 
     let row = if username.is_some() {
@@ -106,6 +108,15 @@ pub async fn new_session(mut database: Database, random: Random, uid: i32) -> Se
     create_session(&mut database, &session_token, uid).await;
     session_token
 }
+pub fn verify_email(token: String) -> bool {
+    let totp= Otp::new();
+    totp.check_current(token.as_str()).unwrap()
+
+}
+pub async fn get_otp() -> String{
+    Otp::generate_new()
+}
+// **AUTH MIDDLEWARE**
 pub async fn auth(
     database: Database,
     mut req: Request,
@@ -122,10 +133,14 @@ pub async fn auth(
                 .and_then(|cookie| cookie.parse::<cookie::Cookie>().ok())
         })
         .find_map(|cookie| {
-            (cookie.name() == AUTH_COOKIE_NAME).then(move || cookie.value().to_owned())
+            let admin = cookie.secure();
+            (cookie.name() == AUTH_COOKIE_NAME).then(move || (cookie.value().to_owned(), admin))
         })
-        .and_then(|cookie_value| cookie_value.parse::<SessionToken>().ok());
-    req.extensions_mut()
-        .insert(AuthState(session_tk.map(|v| (v, None, database))));
+        .and_then(|cookie_value| {
+            Some((cookie_value.0.parse::<SessionToken>().ok(), cookie_value.1))
+        });
+    req.extensions_mut().insert(AuthState(
+        session_tk.map(|v| (v.0.unwrap(), None, database, v.1.unwrap_or_else(|| false))),
+    ));
     next.run(req).await
 }
