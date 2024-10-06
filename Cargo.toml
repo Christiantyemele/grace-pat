@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.7.5"
+axum = { version = "0.7.5", features = ["macros", "multipart"] }
 cookie = "0.18.1"
 diesel = { version = "2.2.4", features = ["postgres"] }
 diesel-async = { version = "0.5.0", features = ["deadpool", "postgres"] }
@@ -19,3 +19,5 @@ thiserror = "1.0.64"
 tokio = { version = "1.40.0", features = ["full", "rt"] }
 totp-rs = "5.6.0"
 tower-cookies = "0.10.0"
+lettre = "0.11.9"
+lettre_email = "0.9"

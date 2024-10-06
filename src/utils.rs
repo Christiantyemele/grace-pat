@@ -1,9 +1,11 @@
-use axum::response::IntoResponse;
+use std::collections::HashMap;
+
+use axum::response::{IntoResponse, Response};
 use cookie::Cookie;
 use http::StatusCode;
 use tower_cookies::Cookies;
-
-use crate::database::queries::SessionToken;
+use axum::extract::Multipart;
+use crate::{auth::error::MultipartError, database::queries::SessionToken};
 pub const AUTH_COOKIE_NAME: &str = "auth_token";
 
 
@@ -30,4 +32,14 @@ pub fn is_admin(username: &String, password: &String) -> bool {
     } else {
         false
     }
+}
+pub async fn parse_multipart(mut multipart: Multipart) -> Result<HashMap<String,String>, Response>{
+    let mut map = HashMap::new();
+    while let Some(field) = multipart.next_field().await.map_err(|_| MultipartError::NoName.json().into_response())? {
+        let name = field.name().ok_or(MultipartError::ReadError.json().into_response())?.to_string();
+        let data = field.text().await.map_err(|_| MultipartError::InvalidValue.json().into_response())?;
+        map.insert(name, data);
+        
+    }
+Ok(map)
 }

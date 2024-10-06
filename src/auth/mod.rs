@@ -1,2 +1,2 @@
 pub mod authentication;
-pub(super) mod error;
+pub mod error;

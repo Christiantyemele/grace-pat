@@ -16,7 +16,7 @@ pub struct Users {
 pub struct NewUser {
     pub username: String,
     pub passkey: String,
-    pub email: Option<String>,
+    pub email: String,
 }
 #[derive(Insertable)]
 #[diesel(table_name = crate::database::schema::session)]

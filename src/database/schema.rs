@@ -19,7 +19,7 @@ diesel::table! {
         id -> Int4,
         username -> Varchar,
         passkey -> Varchar,
-        email -> Nullable<Varchar>,
+        email -> Nullable<Varchar>, // not nullable
     }
 }
 

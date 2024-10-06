@@ -71,10 +71,10 @@ impl SessionToken {
     }
 }
 pub async fn create_user(
-    conn: &mut Database,
+    conn: &Database,
     username: String,
     passkey: String,
-    email: Option<String>,
+    email: String,
 ) -> Result<i32, diesel::result::Error> {
     let mut conn = conn.get().await.unwrap();
 

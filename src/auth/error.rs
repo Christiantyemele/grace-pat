@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use lettre_email::error;
 use serde_json::{json, Value};
 use thiserror::Error as Err;
 
@@ -26,6 +27,15 @@ pub enum LoginError {
     #[error("Not Logged in")]
     NotLogging
 }
+#[derive(Debug, Err)]
+pub enum MultipartError {
+    #[error("No Named field in multipart")]
+    NoName,
+    #[error("Invalid value found in multipart")]
+    InvalidValue,
+    #[error("Reading error")]
+    ReadError
+}
 impl SignupError {
     /// Converts the error to an axum JSON representation.
     pub fn json(&self) -> Json<Value> {
@@ -34,7 +44,19 @@ impl SignupError {
         }))
     }
 }
+impl MultipartError {
+    pub fn json(&self) -> Json<Value> {
+        Json(json!({
+            "error": self.to_string()
+        }))
+    }
+}
 
+impl From<MultipartError> for Json<Value> {
+    fn from(error: MultipartError) -> Self {
+        error.json()
+    }
+}
 impl From<SignupError> for Json<Value> {
     fn from(error: SignupError) -> Self {
         error.json()

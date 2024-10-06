@@ -1,16 +1,18 @@
 use std::sync::{Arc, Mutex};
 
-
-use axum::extract::Request;
+use axum::extract::{Multipart, Request};
+use axum::Extension;
 use pbkdf2::password_hash::PasswordHasher;
 use pbkdf2::{
     password_hash::{PasswordHash, PasswordVerifier, SaltString},
     Pbkdf2,
 };
 use rand_chacha::{rand_core::OsRng, ChaCha8Rng};
+use tokio::io::Join;
 
 use crate::database::queries::{get_id_pwd_by_username, Otp};
-use crate::utils::AUTH_COOKIE_NAME;
+use crate::utils::{parse_multipart, AUTH_COOKIE_NAME};
+use crate::web::everify::{verify_email_b4_create, ROtp};
 use crate::{
     auth::error::SignupError,
     database::queries::{
@@ -25,7 +27,7 @@ pub struct User {
     pub email: Option<String>
 }
 
-use super::error::LoginError;
+use super::error::{LoginError, MultipartError};
 #[derive(Clone)]
 pub struct AuthState(pub Option<(SessionToken, Option<User>, Database, Admin)>);
 impl AuthState {
@@ -37,9 +39,11 @@ type Admin = bool;
 pub type Random = Arc<Mutex<ChaCha8Rng>>;
 
 pub async fn signup(
+    rotp: Extension<ROtp>,
+    lotp:Multipart,
     mut database: Database,
     username: String,
-    email: Option<String>,
+    email: String,
     password: String,
 ) -> Result<(), SignupError> {
     fn valid_username(username: &str) -> bool {
@@ -65,9 +69,9 @@ pub async fn signup(
         } else {
             return Err(SignupError::PasswordError);
         };
-        let result = create_user(&mut database, username, hashed_password, email).await;
+        let result = verify_email_b4_create(rotp, &database, username, hashed_password, email, lotp).await;
         let _new_user_id = match result {
-            Ok(uid) => uid,
+            Some(uid) => uid,
 
             _ => {
                 return Err(SignupError::InternalError);
@@ -106,9 +110,11 @@ pub async fn new_session(mut database: Database, random: Random, uid: i32) -> Se
     create_session(&mut database, &session_token, uid).await;
     session_token
 }
-pub fn verify_email(token: String) -> bool {
+pub async fn verify_email(multipart: Multipart) -> Result<bool, MultipartError> {
+    let data = parse_multipart(multipart).await.unwrap();
+    let token = data.get("code").ok_or(MultipartError::NoName)?;
     let totp= Otp::new();
-    totp.check_current(token.as_str()).unwrap()
+    Ok(totp.check_current(token.as_str()).unwrap())
 
 }
 pub async fn get_otp() -> String{

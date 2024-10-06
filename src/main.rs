@@ -1,14 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use axum::extract::State;
 use axum::routing::{delete, post};
 use axum::Extension;
 use axum::{middleware, response::IntoResponse, routing::get, Router};
-use grace::auth::authentication::{auth, verify_email};
+use grace::auth::authentication::auth;
 use grace::database::connection::establish_connection;
 use grace::utils::logout_response;
-use grace::web::delete::{self, post_delete_me};
-use grace::web::everify::{post_veriy_email, view_otp};
+use grace::web::delete::post_delete_me;
+use grace::web::everify::{view_otp, EmailOtp};
 use grace::web::login::post_login;
 use grace::web::signup::post_signup;
 use rand_chacha::ChaCha8Rng;
@@ -22,6 +21,13 @@ async fn welcome() -> impl IntoResponse {
 #[tokio::main]
 async fn main() {
     let dbconn_pool = establish_connection().await;
+    let otp = || async {
+        grace::auth::authentication::get_otp().await
+    };
+let code = otp().await;
+let code = EmailOtp {
+    value: code
+};
 
     let mdlw_db = dbconn_pool.clone();
     let random = ChaCha8Rng::seed_from_u64(OsRng.next_u64());
@@ -31,10 +37,10 @@ async fn main() {
     let router = Router::new()
         .route("/", get(welcome))
         .route("/signup", post(post_signup))
+        .route_layer(Extension(code))
         .route("/login", post(post_login))
         .route("/logout", post(logout_response))
         .route("/delete", delete(post_delete_me))
-        .route("/verifyemail", post(post_veriy_email))
         .route("/getopt", get(view_otp))
         .layer(middleware::from_fn(
             move |req: http::Request<axum::body::Body>, next| auth(mdlw_db.clone(), req, next),
